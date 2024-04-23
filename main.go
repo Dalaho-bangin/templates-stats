@@ -386,6 +386,7 @@ func printTemplateAdditions(additionFile string) error {
 	}
 	defer output.Close()
 
+	var cveList CveList
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		text := scanner.Text()
@@ -411,6 +412,7 @@ func printTemplateAdditions(additionFile string) error {
 		}
 		template.Close()
 
+		id := data["id"]
 		info, ok := data["info"]
 		if !ok {
 			log.Printf("no info found for template %s\n", text)
@@ -424,7 +426,35 @@ func printTemplateAdditions(additionFile string) error {
 		}
 		authorStr := types.ToString(author)
 
+		if *listCvesInReverse {
+			if id == nil || !strings.HasPrefix(fmt.Sprintf("%v", id), "CVE-") {
+				continue
+			}
+			name := infoMap["name"]
+			cveList = append(cveList, CveItem{CveID: fmt.Sprintf("%v", id), Name: fmt.Sprintf("%v", name), Author: fmt.Sprintf("%v", author)})
+			continue
+		}
 		_, _ = output.WriteString("- " + text + " by " + explodeAuthorsAndJoin(authorStr) + "\n")
+	}
+
+	if len(cveList) > 0 {
+		sort.Sort(cveList)
+		if *count > 0 && len(cveList) >= *count {
+			cveList = cveList[:*count]
+		}
+
+		for _, cve := range cveList {
+			authors := strings.Split(cve.Author, ",")
+			a := ""
+			for i, author := range authors {
+				a += "@" + author
+				if i+1 != len(authors) {
+					a += ", "
+				}
+			}
+			text := fmt.Sprintf("%s [%s] by %s\n", cve.Name, cve.CveID, a)
+			_, _ = output.WriteString(text)
+		}
 	}
 	return nil
 }
