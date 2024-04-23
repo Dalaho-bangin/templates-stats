@@ -17,6 +17,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/nuclei/v2/pkg/catalog/disk"
 	"github.com/projectdiscovery/nuclei/v2/pkg/types"
+	sliceutil "github.com/projectdiscovery/utils/slice"
 	stringsutil "github.com/projectdiscovery/utils/strings"
 	"gopkg.in/yaml.v2"
 )
@@ -62,6 +63,7 @@ var (
 	typesFilter       = flag.Bool("types", false, "Show Types Data")
 	verbose           = flag.Bool("v", false, "Use verbose mode")
 	listCvesInReverse = flag.Bool("lcr", false, "List CVEs in reverse order")
+	includeFields     = flag.String("fields", "", "Include fields in output. comma separated: authors,severity")
 	ta                = flag.String("ta", "", "Template Addition file")
 	outputFile        = flag.String("output", "", "File to write template addition author output to")
 	jsonOutput        = flag.Bool("json", false, "Show output in json format")
@@ -94,9 +96,10 @@ func (o *Output) getMaxItemCount() int {
 }
 
 type CveItem struct {
-	CveID  string `json:"cve_id"`
-	Name   string `json:"name"`
-	Author string `json:"author"`
+	CveID    string `json:"cve_id"`
+	Name     string `json:"name"`
+	Author   string `json:"author"`
+	Severity string `json:"severity"`
 }
 
 type CveList []CveItem
@@ -182,7 +185,8 @@ func printTemplateStats() {
 			}
 			name := infoMap["name"]
 			author := infoMap["author"]
-			cveList = append(cveList, CveItem{CveID: fmt.Sprintf("%v", id), Name: fmt.Sprintf("%v", name), Author: fmt.Sprintf("%v", author)})
+			severity := infoMap["severity"]
+			cveList = append(cveList, CveItem{CveID: fmt.Sprintf("%v", id), Name: fmt.Sprintf("%v", name), Author: fmt.Sprintf("%v", author), Severity: fmt.Sprintf("%v", severity)})
 			continue
 		}
 
@@ -278,17 +282,11 @@ func printTemplateStats() {
 		if *count > 0 && len(cveList) >= *count {
 			cveList = cveList[:*count]
 		}
+		fields := strings.Split(*includeFields, ",")
+		fields = sliceutil.Dedupe(fields)
 
 		for _, cve := range cveList {
-			authors := strings.Split(cve.Author, ",")
-			a := ""
-			for i, author := range authors {
-				a += "@" + author
-				if i+1 != len(authors) {
-					a += ", "
-				}
-			}
-			fmt.Printf("%s [%s] by %s\n", cve.Name, cve.CveID, a)
+			fmt.Printf("%s", formatOutputStr(cve, fields))
 		}
 		os.Exit(0)
 	}
@@ -431,7 +429,8 @@ func printTemplateAdditions(additionFile string) error {
 				continue
 			}
 			name := infoMap["name"]
-			cveList = append(cveList, CveItem{CveID: fmt.Sprintf("%v", id), Name: fmt.Sprintf("%v", name), Author: fmt.Sprintf("%v", author)})
+			severity := infoMap["severity"]
+			cveList = append(cveList, CveItem{CveID: fmt.Sprintf("%v", id), Name: fmt.Sprintf("%v", name), Author: fmt.Sprintf("%v", author), Severity: fmt.Sprintf("%v", severity)})
 			continue
 		}
 		_, _ = output.WriteString("- " + text + " by " + explodeAuthorsAndJoin(authorStr) + "\n")
@@ -442,18 +441,10 @@ func printTemplateAdditions(additionFile string) error {
 		if *count > 0 && len(cveList) >= *count {
 			cveList = cveList[:*count]
 		}
-
+		fields := strings.Split(*includeFields, ",")
+		fields = sliceutil.Dedupe(fields)
 		for _, cve := range cveList {
-			authors := strings.Split(cve.Author, ",")
-			a := ""
-			for i, author := range authors {
-				a += "@" + author
-				if i+1 != len(authors) {
-					a += ", "
-				}
-			}
-			text := fmt.Sprintf("%s [%s] by %s\n", cve.Name, cve.CveID, a)
-			_, _ = output.WriteString(text)
+			_, _ = output.WriteString(formatOutputStr(cve, fields))
 		}
 	}
 	return nil
@@ -489,4 +480,28 @@ func explodeCommaSeparatedField(field string) []string {
 		partValues = append(partValues, strings.ToLower(strings.TrimSpace(part)))
 	}
 	return partValues
+}
+
+func formatOutputStr(cveItem CveItem, fields []string) string {
+	text := fmt.Sprintf("[%s] %s", cveItem.CveID, cveItem.Name)
+	if len(fields) == 0 {
+		return text + "\n"
+	}
+	for _, field := range fields {
+		switch field {
+		case "author":
+			authors := strings.Split(cveItem.Author, ",")
+			a := ""
+			for i, author := range authors {
+				a += "@" + author
+				if i+1 != len(authors) {
+					a += ", "
+				}
+			}
+			text = fmt.Sprintf("%s (%s)", text, a)
+		case "severity":
+			text = fmt.Sprintf("%s [%s]", text, cveItem.Severity)
+		}
+	}
+	return text + "\n"
 }
