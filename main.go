@@ -121,7 +121,14 @@ func (c CveList) Less(i, j int) bool {
 	if err1 != nil || err2 != nil || err3 != nil || err4 != nil {
 		return c[i].CveID > c[j].CveID
 	}
-	return firstYearPart >= secondYearPart && firstNumPart >= secondNumPart
+	if firstYearPart > secondYearPart {
+		return true
+	} else if firstYearPart == secondYearPart {
+		if firstNumPart > secondNumPart {
+			return true
+		}
+	}
+	return false
 }
 
 func main() {
