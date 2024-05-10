@@ -104,9 +104,25 @@ type CveItem struct {
 
 type CveList []CveItem
 
-func (c CveList) Len() int           { return len(c) }
-func (c CveList) Swap(i, j int)      { c[i], c[j] = c[j], c[i] }
-func (c CveList) Less(i, j int) bool { return c[i].CveID > c[j].CveID }
+func (c CveList) Len() int      { return len(c) }
+func (c CveList) Swap(i, j int) { c[i], c[j] = c[j], c[i] }
+func (c CveList) Less(i, j int) bool {
+	first := strings.Split(c[i].CveID, "-")
+	second := strings.Split(c[j].CveID, "-")
+	if len(first) < 1 || len(second) < 1 && len(first) != len(second) {
+		return c[i].CveID > c[j].CveID
+	}
+	var err1, err2, err3, err4 error
+	var firstYearPart, firstNumPart, secondYearPart, secondNumPart int
+	firstYearPart, err1 = strconv.Atoi(first[1])
+	firstNumPart, err2 = strconv.Atoi(first[2])
+	secondYearPart, err3 = strconv.Atoi(second[1])
+	secondNumPart, err4 = strconv.Atoi(second[2])
+	if err1 != nil || err2 != nil || err3 != nil || err4 != nil {
+		return c[i].CveID > c[j].CveID
+	}
+	return firstYearPart >= secondYearPart && firstNumPart >= secondNumPart
+}
 
 func main() {
 	flag.Parse()
