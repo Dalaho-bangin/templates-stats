@@ -333,14 +333,14 @@ func printTemplateStats() {
 		fields := strings.Split(*includeFields, ",")
 		fields = sliceutil.Dedupe(fields)
 		for _, cve := range cveList {
-			resultWriter.Write([]byte(formatCveItem(cve, fields)))
+			_, _ = resultWriter.Write([]byte(formatCveItem(cve, fields)))
 		}
 		*count = *count - len(cveList)
 		if hasTopFilter && *count >= 0 {
 			nonCveList = nonCveList[:*count]
 		}
 		for _, nc := range nonCveList {
-			resultWriter.Write([]byte(formatNonCveItem(nc, fields)))
+			_, _ = resultWriter.Write([]byte(formatNonCveItem(nc, fields)))
 		}
 		os.Exit(0)
 	}
